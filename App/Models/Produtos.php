@@ -1,5 +1,6 @@
 <?php
 // Ficheiro: App/Models/Produtos.php
+// Versão completa e correta para trabalhar com Produtos e Variações de Tamanho.
 
 class Produto
 {
@@ -12,7 +13,7 @@ class Produto
     private $imagem2;
     private $imagem3;
 
-    // --- Getters e Setters ---
+    // --- Getters e Setters para o Produto Pai ---
     public function getId() { return $this->id; }
     public function setId($id) { $this->id = $id; }
     public function getNome() { return $this->nome; }
@@ -29,7 +30,7 @@ class Produto
     public function setImagem3($imagem3) { $this->imagem3 = $imagem3; }
 
     /**
-     * Salva o produto pai e todas as suas variações.
+     * Salva o produto pai e todas as suas variações de tamanho numa única transação.
      */
     public function salvarComVariacoes(PDO $pdo, array $variacoes): int
     {
@@ -38,21 +39,27 @@ class Produto
             $sqlProduto = "INSERT INTO produtos (nome, descricao, id_categoria, imagem1, imagem2, imagem3) VALUES (:nome, :descricao, :id_categoria, :imagem1, :imagem2, :imagem3)";
             $stmtProduto = $pdo->prepare($sqlProduto);
             $stmtProduto->execute([
-                ':nome' => $this->getNome(), ':descricao' => $this->getDescricao(), ':id_categoria' => $this->getIdCategoria(),
-                ':imagem1' => $this->getImagem1(), ':imagem2' => $this->getImagem2(), ':imagem3' => $this->getImagem3()
+                ':nome' => $this->getNome(),
+                ':descricao' => $this->getDescricao(),
+                ':id_categoria' => $this->getIdCategoria(),
+                ':imagem1' => $this->getImagem1(),
+                ':imagem2' => $this->getImagem2(),
+                ':imagem3' => $this->getImagem3()
             ]);
             $idProdutoPai = $pdo->lastInsertId();
 
             $sqlVariacao = "INSERT INTO variacoes_produto (id_produto, tamanho, preco_custo, preco_venda, quantidade_estoque) VALUES (:id_produto, :tamanho, :preco_custo, :preco_venda, :quantidade_estoque)";
             $stmtVariacao = $pdo->prepare($sqlVariacao);
-            $sqlMovimentacao = "INSERT INTO movimentacao_estoque (id_variacao, tipo_movimentacao, quantidade, observacao) VALUES (:id_variacao, 'ENTRADA', :quantidade, 'Cadastro Inicial')";
+            $sqlMovimentacao = "INSERT INTO movimentacao_estoque (id_variacao, tipo_movimentacao, quantidade, observacao) VALUES (:id_variacao, 'ENTRADA', :quantidade, 'Cadastro Inicial do Produto')";
             $stmtMovimentacao = $pdo->prepare($sqlMovimentacao);
 
             foreach ($variacoes as $var) {
                 $stmtVariacao->execute([
-                    ':id_produto' => $idProdutoPai, ':tamanho' => $var['tamanho'],
+                    ':id_produto' => $idProdutoPai,
+                    ':tamanho' => $var['tamanho'],
                     ':preco_custo' => !empty($var['preco_custo']) ? $var['preco_custo'] : null,
-                    ':preco_venda' => $var['preco_venda'], ':quantidade_estoque' => $var['quantidade_estoque']
+                    ':preco_venda' => $var['preco_venda'],
+                    ':quantidade_estoque' => $var['quantidade_estoque']
                 ]);
                 $idVariacaoInserida = $pdo->lastInsertId();
                 if ($var['quantidade_estoque'] > 0) {
@@ -63,7 +70,7 @@ class Produto
             return $idProdutoPai;
         } catch (Exception $e) {
             $pdo->rollBack();
-            throw new Exception("Erro ao salvar o produto: " . $e->getMessage());
+            throw new Exception("Erro ao salvar o produto e suas variações: " . $e->getMessage());
         }
     }
 
@@ -74,12 +81,16 @@ class Produto
     {
         try {
             $pdo->beginTransaction();
-
             $sqlProduto = "UPDATE produtos SET nome = :nome, descricao = :descricao, id_categoria = :id_categoria, imagem1 = :imagem1, imagem2 = :imagem2, imagem3 = :imagem3 WHERE id = :id";
             $stmtProduto = $pdo->prepare($sqlProduto);
             $stmtProduto->execute([
-                ':nome' => $this->getNome(), ':descricao' => $this->getDescricao(), ':id_categoria' => $this->getIdCategoria(),
-                ':imagem1' => $this->getImagem1(), ':imagem2' => $this->getImagem2(), ':imagem3' => $this->getImagem3(), ':id' => $this->getId()
+                ':nome' => $this->getNome(),
+                ':descricao' => $this->getDescricao(),
+                ':id_categoria' => $this->getIdCategoria(),
+                ':imagem1' => $this->getImagem1(),
+                ':imagem2' => $this->getImagem2(),
+                ':imagem3' => $this->getImagem3(),
+                ':id' => $this->getId()
             ]);
 
             $idsVariacoesDoFormulario = array_filter(array_column($variacoes, 'id'));
@@ -109,7 +120,6 @@ class Produto
                     $stmtUpdate->execute([$var['tamanho'], $precoCusto, $var['preco_venda'], $var['quantidade_estoque'], $var['id']]);
                 }
             }
-
             $pdo->commit();
             return true;
         } catch (Exception $e) {
@@ -138,16 +148,13 @@ class Produto
         $stmtProduto = $pdo->prepare($sqlProduto);
         $stmtProduto->execute([':id' => $id]);
         $produto['info'] = $stmtProduto->fetch(PDO::FETCH_ASSOC);
-
         if (!$produto['info']) {
             return null;
         }
-
         $sqlVariacoes = "SELECT * FROM variacoes_produto WHERE id_produto = :id_produto ORDER BY id ASC";
         $stmtVariacoes = $pdo->prepare($sqlVariacoes);
         $stmtVariacoes->execute([':id_produto' => $id]);
         $produto['variacoes'] = $stmtVariacoes->fetchAll(PDO::FETCH_ASSOC);
-
         return $produto;
     }
 
@@ -158,19 +165,15 @@ class Produto
         $stmtProdutos = $pdo->prepare($sqlProdutos);
         $stmtProdutos->execute([':termo' => $termoBusca]);
         $produtos = $stmtProdutos->fetchAll(PDO::FETCH_ASSOC);
-
         if (empty($produtos)) return [];
-
         $idsProdutos = array_column($produtos, 'id');
         $placeholders = implode(',', array_fill(0, count($idsProdutos), '?'));
-
         $sqlVariacoes = "SELECT id, id_produto, tamanho, preco_venda, quantidade_estoque 
                          FROM variacoes_produto 
                          WHERE id_produto IN ($placeholders) AND quantidade_estoque > 0";
         $stmtVariacoes = $pdo->prepare($sqlVariacoes);
         $stmtVariacoes->execute($idsProdutos);
         $variacoes = $stmtVariacoes->fetchAll(PDO::FETCH_ASSOC);
-
         $produtosComVariacoes = [];
         foreach ($produtos as $produto) {
             $produto['variacoes'] = array_values(array_filter($variacoes, fn($v) => $v['id_produto'] == $produto['id']));
@@ -188,21 +191,26 @@ class Produto
         }
         try {
             $pdo->beginTransaction();
-
             $sqlEstoque = "UPDATE variacoes_produto SET quantidade_estoque = quantidade_estoque + :quantidade WHERE id = :id_variacao";
             $stmtEstoque = $pdo->prepare($sqlEstoque);
             $stmtEstoque->execute([':quantidade' => $quantidade, ':id_variacao' => $id_variacao]);
-
             $sqlMov = "INSERT INTO movimentacao_estoque (id_variacao, tipo_movimentacao, quantidade, observacao) 
                        VALUES (:id_variacao, 'ENTRADA', :quantidade, :observacao)";
             $stmtMov = $pdo->prepare($sqlMov);
             $stmtMov->execute([':id_variacao' => $id_variacao, ':quantidade' => $quantidade, ':observacao' => $observacao]);
-
             $pdo->commit();
         } catch (Exception $e) {
             $pdo->rollBack();
             throw new Exception("Erro ao adicionar estoque: " . $e->getMessage());
         }
+    }
+    
+    public static function listarVariacoesPorProdutoId(PDO $pdo, int $id_produto): array
+    {
+        $sql = "SELECT id, tamanho, quantidade_estoque FROM variacoes_produto WHERE id_produto = :id_produto ORDER BY id ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':id_produto' => $id_produto]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 
