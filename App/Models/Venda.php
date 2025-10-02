@@ -7,6 +7,7 @@ class Venda
     private $id_usuario;
     private $valor_total;
     private $numero_documento;
+    private $forma_pagamento;
     private $data_hora;
 
     // --- Getters e Setters ---
@@ -18,6 +19,8 @@ class Venda
     public function setValorTotal($valor_total) { $this->valor_total = $valor_total; }
     public function getNumeroDocumento() { return $this->numero_documento; }
     public function setNumeroDocumento($numero_documento) { $this->numero_documento = $numero_documento; }
+    public function getFormaPagamento() { return $this->forma_pagamento; }
+    public function setFormaPagamento($forma_pagamento) { $this->forma_pagamento = $forma_pagamento; }
     public function getDataHora() { return $this->data_hora; }
     public function setDataHora($data_hora) { $this->data_hora = $data_hora; }
 
@@ -33,17 +36,18 @@ class Venda
             $pdo->beginTransaction();
 
             // 1. Inserir a venda principal
-            $sqlVenda = "INSERT INTO vendas (id_usuario, valor_total, numero_documento) VALUES (:id_usuario, :valor_total, :numero_documento)";
+            $sqlVenda = "INSERT INTO vendas (id_usuario, valor_total, numero_documento, forma_pagamento) VALUES (:id_usuario, :valor_total, :numero_documento, :forma_pagamento)";
             $stmtVenda = $pdo->prepare($sqlVenda);
             $stmtVenda->execute([
                 ':id_usuario' => $this->getIdUsuario(),
                 ':valor_total' => $this->getValorTotal(),
-                ':numero_documento' => $this->getNumeroDocumento()
+                ':numero_documento' => $this->getNumeroDocumento(),
+                ':forma_pagamento' => $this->getFormaPagamento()
             ]);
             $idVendaInserida = $pdo->lastInsertId();
 
             // Preparar queries para o loop
-            $sqlCheckEstoque = "SELECT nome FROM produtos p JOIN variacoes_produto vp ON p.id = vp.id_produto WHERE vp.id = :id_variacao AND vp.quantidade_estoque >= :quantidade FOR UPDATE";
+            $sqlCheckEstoque = "SELECT p.nome, vp.tamanho, vp.quantidade_estoque FROM variacoes_produto vp JOIN produtos p ON vp.id_produto = p.id WHERE vp.id = :id_variacao FOR UPDATE";
             $stmtCheckEstoque = $pdo->prepare($sqlCheckEstoque);
             
             $sqlItem = "INSERT INTO itens_venda (id_venda, id_variacao, quantidade, preco_unitario_momento) VALUES (:id_venda, :id_variacao, :quantidade, :preco)";
@@ -61,26 +65,26 @@ class Venda
                     throw new Exception('Dados de um item no carrinho estão incompletos.');
                 }
                 
-                // Verifica se há estoque suficiente antes de prosseguir
-                $stmtCheckEstoque->execute([':id_variacao' => $item['id_variacao'], ':quantidade' => $item['quantidade']]);
-                if ($stmtCheckEstoque->rowCount() === 0) {
-                    throw new Exception("Estoque insuficiente para um dos itens no carrinho.");
+                $stmtCheckEstoque->execute([':id_variacao' => $item['id_variacao']]);
+                $variacao = $stmtCheckEstoque->fetch(PDO::FETCH_ASSOC);
+
+                if (!$variacao || $variacao['quantidade_estoque'] < $item['quantidade']) {
+                    $nomeItem = $variacao ? "{$variacao['nome']} (Tamanho: {$variacao['tamanho']})" : "Item ID {$item['id_variacao']}";
+                    throw new Exception("Estoque insuficiente para o produto: " . $nomeItem);
                 }
 
-                // Inserir item da venda
                 $stmtItem->execute([
                     ':id_venda' => $idVendaInserida,
                     ':id_variacao' => $item['id_variacao'],
                     ':quantidade' => $item['quantidade'],
                     ':preco' => $item['preco_venda']
                 ]);
-                // Dar baixa no estoque
                 $stmtEstoque->execute([':quantidade' => $item['quantidade'], ':id_variacao' => $item['id_variacao']]);
-                // Registar movimentação de saída
                 $stmtMov->execute([':id_variacao' => $item['id_variacao'], ':quantidade' => $item['quantidade'], ':observacao' => 'Venda ID: ' . $idVendaInserida]);
             }
 
             $pdo->commit();
+            return true;
         } catch (Exception $e) {
             $pdo->rollBack();
             throw new Exception("Erro ao processar a venda: " . $e->getMessage());
@@ -100,7 +104,6 @@ class Venda
             case 'semana': $whereClause = " WHERE YEARWEEK(v.data_hora, 1) = YEARWEEK(CURDATE(), 1)"; break;
             case 'mes': $whereClause = " WHERE MONTH(v.data_hora) = MONTH(CURDATE()) AND YEAR(v.data_hora) = YEAR(CURDATE())"; break;
         }
-
         $sql .= $whereClause . " ORDER BY v.data_hora DESC";
         $stmt = $pdo->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -108,17 +111,28 @@ class Venda
 
     public static function buscarItensPorVendaId(PDO $pdo, int $idVenda): array
     {
-        $sql = "SELECT 
-                    p.nome AS nome_produto, 
-                    vp.tamanho,
-                    iv.quantidade, 
-                    iv.preco_unitario_momento
+        $sql = "SELECT p.nome AS nome_produto, vp.tamanho, iv.quantidade, iv.preco_unitario_momento
                 FROM itens_venda AS iv
                 JOIN variacoes_produto AS vp ON iv.id_variacao = vp.id
                 JOIN produtos AS p ON vp.id_produto = p.id
                 WHERE iv.id_venda = :id_venda";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':id_venda' => $idVenda]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    public static function gerarFechamentoDeCaixa(PDO $pdo, string $data): array
+    {
+        $sql = "SELECT 
+                    forma_pagamento, 
+                    COUNT(id) as total_vendas, 
+                    SUM(valor_total) as valor_apurado
+                FROM vendas
+                WHERE DATE(data_hora) = :data_venda
+                GROUP BY forma_pagamento";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':data_venda' => $data]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }

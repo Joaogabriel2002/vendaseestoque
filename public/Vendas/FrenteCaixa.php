@@ -60,6 +60,15 @@ if (!isset($_SESSION['usuario_id'])) {
                     <label for="numero_documento" class="block text-sm font-medium text-gray-700">Nº do Documento (Opcional)</label>
                     <input type="text" id="numero_documento" class="mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
                 </div>
+                 <div>
+                    <label for="forma_pagamento" class="block text-sm font-medium text-gray-700">Forma de Pagamento</label>
+                    <select id="forma_pagamento" class="mt-1 w-full px-3 py-2 border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <option>Dinheiro</option>
+                        <option>Cartão de Crédito</option>
+                        <option>Cartão de Débito</option>
+                        <option>PIX</option>
+                    </select>
+                </div>
             </div>
             <div class="border-t pt-4">
                 <div class="flex justify-between text-3xl font-bold text-gray-900 mb-6">
@@ -262,16 +271,18 @@ if (!isset($_SESSION['usuario_id'])) {
             
             const total = cart.reduce((sum, item) => sum + (item.quantidade * item.preco_venda), 0);
             const numeroDocumento = document.getElementById('numero_documento').value;
+            const formaPagamento = document.getElementById('forma_pagamento').value;
             
             const dataToSend = {
                 carrinho: cart.map(item => ({ 
                     id_produto: item.id_produto,
                     id_variacao: item.id_variacao, 
                     quantidade: item.quantidade,
-                    preco_venda: item.preco_venda // Envia o preço atualizado
+                    preco_venda: item.preco_venda
                 })),
                 total: total,
-                numero_documento: numeroDocumento
+                numero_documento: numeroDocumento,
+                forma_pagamento: formaPagamento
             };
 
             try {

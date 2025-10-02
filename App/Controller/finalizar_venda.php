@@ -11,7 +11,6 @@ header('Content-Type: application/json');
 // Ficheiros necessários
 require_once __DIR__ . '/../Config/conexao.php';
 require_once __DIR__ . '/../Models/Venda.php';
-require_once __DIR__ . '/../Models/Produtos.php'; // Incluído para futuras validações, se necessário
 
 // Obtém os dados que o JavaScript enviou (em formato JSON)
 $dados = json_decode(file_get_contents('php://input'), true);
@@ -20,6 +19,7 @@ $dados = json_decode(file_get_contents('php://input'), true);
 $carrinho = $dados['carrinho'] ?? [];
 $totalVenda = $dados['total'] ?? 0;
 $numeroDocumento = $dados['numero_documento'] ?? null;
+$formaPagamento = $dados['forma_pagamento'] ?? 'Não informado';
 
 // Validação inicial
 if (empty($carrinho) || $totalVenda <= 0) {
@@ -42,20 +42,17 @@ try {
     $venda = new Venda();
     $venda->setIdUsuario($id_usuario);
     $venda->setValorTotal($totalVenda);
-    $venda->setNumeroDocumento($numeroDocumento); // Define o número do documento opcional
+    $venda->setNumeroDocumento($numeroDocumento);
+    $venda->setFormaPagamento($formaPagamento);
 
-    // O método 'criar' fará todo o trabalho pesado:
-    // 1. Guarda a venda
-    // 2. Guarda os itens (variações)
-    // 3. Atualiza o estoque de cada variação
-    // 4. Regista a movimentação para cada variação
+    // O método 'criar' fará todo o trabalho pesado
     $venda->criar($pdo, $carrinho);
 
     // Se tudo correu bem, envia uma resposta de sucesso
     echo json_encode(['sucesso' => true, 'mensagem' => 'Venda finalizada com sucesso!']);
 
 } catch (Exception $e) {
-    // Se ocorrer um erro durante o processo, regista o erro para depuração
+    // Se ocorrer um erro, regista o erro para depuração
     error_log("Erro em finalizar_venda.php: " . $e->getMessage());
     // E envia uma mensagem de erro clara para o utilizador
     echo json_encode(['sucesso' => false, 'mensagem' => $e->getMessage()]);
