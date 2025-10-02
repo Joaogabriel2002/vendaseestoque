@@ -60,11 +60,6 @@ if (!isset($_SESSION['usuario_id'])) {
                     <label for="numero_documento" class="block text-sm font-medium text-gray-700">Nº do Documento (Opcional)</label>
                     <input type="text" id="numero_documento" class="mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
                 </div>
-                 <div>
-                    <label for="valor_pago" class="block text-sm font-medium text-gray-700">Valor Pago (R$)</label>
-                    <input type="number" id="valor_pago" step="0.01" class="mt-1 w-full px-3 py-2 border rounded-md text-xl font-bold focus:outline-none focus:ring-1 focus:ring-blue-500">
-                </div>
-                 <div class="flex justify-between text-lg"><span class="text-gray-600">Troco</span><span id="troco" class="font-semibold text-green-600 text-2xl">R$ 0,00</span></div>
             </div>
             <div class="border-t pt-4">
                 <div class="flex justify-between text-3xl font-bold text-gray-900 mb-6">
@@ -93,7 +88,6 @@ if (!isset($_SESSION['usuario_id'])) {
         const finalizeVendaBtn = document.getElementById('finalizeVendaBtn');
         const variationModal = document.getElementById('variationModal');
         const feedbackModal = document.getElementById('feedbackModal');
-        const valorPagoInput = document.getElementById('valor_pago');
 
         let cart = [];
         let productsCache = {};
@@ -208,7 +202,10 @@ if (!isset($_SESSION['usuario_id'])) {
                                     <button onclick="updateQuantity(${index}, 1)" class="px-2 py-1 bg-gray-200 rounded-r">+</button>
                                 </div>
                             </td>
-                            <td class="py-4 px-6 text-right">R$ ${parseFloat(item.preco_venda).toFixed(2).replace('.', ',')}</td>
+                            <td class="py-4 px-6 text-right cursor-pointer hover:bg-yellow-100" onclick="editPrice(${index})">
+                                R$ ${parseFloat(item.preco_venda).toFixed(2).replace('.', ',')}
+                                <i class="fas fa-pencil-alt text-xs text-gray-400 ml-1"></i>
+                            </td>
                             <td class="py-4 px-6 text-right font-semibold">R$ ${subtotal.toFixed(2).replace('.', ',')}</td>
                             <td class="py-4 px-6 text-center">
                                 <button onclick="removeFromCart(${index})" class="text-red-500 hover:text-red-700"><i class="fas fa-trash-alt"></i></button>
@@ -221,14 +218,26 @@ if (!isset($_SESSION['usuario_id'])) {
 
         function updateSummary() {
             const total = cart.reduce((sum, item) => sum + (item.quantidade * item.preco_venda), 0);
-            const valorPago = parseFloat(valorPagoInput.value) || 0;
-            const troco = valorPago > total ? valorPago - total : 0;
-            
             document.getElementById('subtotal').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
             document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
-            document.getElementById('troco').innerText = `R$ ${troco.toFixed(2).replace('.', ',')}`;
             finalizeVendaBtn.disabled = cart.length === 0;
         }
+
+        window.editPrice = (index) => {
+            const item = cart[index];
+            const currentPrice = parseFloat(item.preco_venda).toFixed(2);
+            const newPriceStr = prompt(`Alterar preço para "${item.nome}":`, currentPrice);
+
+            if (newPriceStr !== null) {
+                const newPrice = parseFloat(newPriceStr.replace(',', '.'));
+                if (!isNaN(newPrice) && newPrice >= 0) {
+                    item.preco_venda = newPrice;
+                    renderCart();
+                } else {
+                    alert('Valor inválido. Por favor, insira um número.');
+                }
+            }
+        };
 
         window.updateQuantity = (index, change) => {
             const item = cart[index];
@@ -248,8 +257,6 @@ if (!isset($_SESSION['usuario_id'])) {
             renderCart();
         };
 
-        valorPagoInput.addEventListener('input', updateSummary);
-
         finalizeVendaBtn.addEventListener('click', async () => {
             if (cart.length === 0) return;
             
@@ -261,7 +268,7 @@ if (!isset($_SESSION['usuario_id'])) {
                     id_produto: item.id_produto,
                     id_variacao: item.id_variacao, 
                     quantidade: item.quantidade,
-                    preco_venda: item.preco_venda
+                    preco_venda: item.preco_venda // Envia o preço atualizado
                 })),
                 total: total,
                 numero_documento: numeroDocumento
@@ -280,7 +287,6 @@ if (!isset($_SESSION['usuario_id'])) {
                     cart = [];
                     renderCart();
                     document.getElementById('numero_documento').value = '';
-                    document.getElementById('valor_pago').value = '';
                 } else {
                     showFeedbackModal('error', 'Erro!', result.mensagem);
                 }
