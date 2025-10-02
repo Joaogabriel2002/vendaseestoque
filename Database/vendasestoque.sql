@@ -1,4 +1,8 @@
+-- Ficheiro: loja_database_schema.sql
+-- Este script cria a base de dados 'loja' do zero, com a estrutura completa e atualizada.
 
+-- Apaga a base de dados se ela já existir, para uma instalação limpa.
+DROP DATABASE IF EXISTS `loja`;
 
 -- Cria a nova base de dados com o conjunto de caracteres ideal.
 CREATE DATABASE `loja` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -52,12 +56,13 @@ CREATE TABLE `variacoes_produto` (
 ) COMMENT='Controla o preço e o estoque de cada tamanho de um produto.';
 
 -- --------------------------------------------------------
--- Tabela `vendas`
+-- Tabela `vendas` (ATUALIZADA)
 -- --------------------------------------------------------
 CREATE TABLE `vendas` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `data_hora` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `valor_total` DECIMAL(10, 2) NOT NULL,
+  `numero_documento` VARCHAR(100) NULL COMMENT 'Número manual do documento ou da transação, se aplicável.',
   `id_usuario` INT NOT NULL,
   FOREIGN KEY (`id_usuario`) REFERENCES `usuarios`(`id`)
 ) COMMENT='Registra o cabeçalho de cada transação de venda.';
@@ -91,5 +96,6 @@ CREATE TABLE `movimentacao_estoque` (
 -- --------------------------------------------------------
 -- Inserir dados iniciais para teste
 -- --------------------------------------------------------
-INSERT INTO `usuarios` (`id`, `email`, `senha`) VALUES (1, 'admin@admin.com', '123');
+INSERT INTO `usuarios` (`id`, `email`, `senha`) VALUES (1, 'admin@loja.com', '$2y$10$3g.6i/Q9.0t3jS5.6hJ.QeUqB4p/2U.w0sS3.Y4t/5p.I5eP9zUu6'); -- Senha: senha123
 INSERT INTO `categorias` (`id`, `nome`) VALUES (1, 'Camisetas'), (2, 'Calças');
+
