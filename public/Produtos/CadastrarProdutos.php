@@ -70,10 +70,10 @@ if (isset($_GET['status']) && isset($_GET['msg'])) {
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="md:col-span-2">
+                    <!-- <div class="md:col-span-2">
                         <label for="descricao" class="block text-gray-600 font-medium mb-2">Descrição</label>
                         <textarea id="descricao" name="descricao" rows="3" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Detalhes do produto..."></textarea>
-                    </div>
+                    </div> -->
                 </div>
             </div>
 

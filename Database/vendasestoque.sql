@@ -1,13 +1,10 @@
 -- Ficheiro: loja_database_schema.sql
--- Este script cria a base de dados 'loja' do zero, com a estrutura completa e atualizada.
+-- Script completo para criar a base de dados 'loja' com a estrutura final.
 
--- Apaga a base de dados se ela já existir, para uma instalação limpa.
-DROP DATABASE IF EXISTS `loja`;
+-- Cria a base de dados apenas se ela não existir.
+CREATE DATABASE IF NOT EXISTS `loja` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- Cria a nova base de dados com o conjunto de caracteres ideal.
-CREATE DATABASE `loja` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- Seleciona a base de dados para os comandos seguintes.
+-- Seleciona a base de dados para usar nos comandos seguintes.
 USE `loja`;
 
 -- --------------------------------------------------------
@@ -32,23 +29,22 @@ CREATE TABLE `categorias` (
 -- --------------------------------------------------------
 CREATE TABLE `produtos` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `nome` VARCHAR(240) NOT NULL COMMENT 'Ex: Camiseta Gola V Lisa',
+  `nome` VARCHAR(240) NOT NULL,
   `descricao` TEXT,
   `id_categoria` INT,
-  `imagem1` VARCHAR(255) NULL,
-  `imagem2` VARCHAR(255) NULL,
-  `imagem3` VARCHAR(255) NULL,
-  FOREIGN KEY (`id_categoria`) REFERENCES `categorias`(`id`)
-) COMMENT='Guarda as informações genéricas de um produto, comuns a todos os tamanhos.';
+  `imagem1` VARCHAR(255) NULL COMMENT 'Nome do ficheiro da imagem principal',
+  `imagem2` VARCHAR(255) NULL COMMENT 'Nome do ficheiro da imagem secundária',
+  `imagem3` VARCHAR(255) NULL COMMENT 'Nome do ficheiro da imagem terciária',
+  FOREIGN KEY (`id_categoria`) REFERENCES `categorias`(`id`) ON DELETE SET NULL
+) COMMENT='Guarda as informações genéricas de um produto.';
 
 -- --------------------------------------------------------
 -- Tabela `variacoes_produto` (Os Itens Físicos/SKUs)
 -- --------------------------------------------------------
 CREATE TABLE `variacoes_produto` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `id_produto` INT NOT NULL COMMENT 'Liga esta variação ao seu produto pai.',
+  `id_produto` INT NOT NULL,
   `tamanho` VARCHAR(50) NOT NULL COMMENT 'Ex: P, M, G, 40, 42, Único',
-  `sku` VARCHAR(100) UNIQUE COMMENT 'Código único opcional para esta variação específica (Ex: CAM-GOLAV-M).',
   `preco_custo` DECIMAL(10, 2),
   `preco_venda` DECIMAL(10, 2) NOT NULL,
   `quantidade_estoque` INT NOT NULL DEFAULT 0,
@@ -62,7 +58,8 @@ CREATE TABLE `vendas` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `data_hora` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `valor_total` DECIMAL(10, 2) NOT NULL,
-  `numero_documento` VARCHAR(100) NULL COMMENT 'Número manual do documento ou da transação, se aplicável.',
+  `numero_documento` VARCHAR(100) NULL COMMENT 'Número manual do documento ou da transação.',
+  `forma_pagamento` VARCHAR(50) NULL,
   `id_usuario` INT NOT NULL,
   FOREIGN KEY (`id_usuario`) REFERENCES `usuarios`(`id`)
 ) COMMENT='Registra o cabeçalho de cada transação de venda.';
